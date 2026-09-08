@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hardware Requirements | MorrowOS</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html" class="nav-brand">Morrow<span>OS</span></a>
+      <button class="hamburger" aria-label="Menu" onclick="document.querySelector('.nav-links').classList.toggle('open')">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="features.html">Features</a></li>
+        <li><a href="hardware.html" class="active">Hardware</a></li>
+        <li><a href="legacy.html">Legacy</a></li>
+        <li><a href="download.html">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero" style="padding-bottom: 20px;">
+      <h1>Hardware Requirements</h1>
+      <p>MorrowOS is designed to run on a wide range of systems. Here's what you'll need.</p>
+    </section>
+
+    <section>
+      <div class="specs-wrapper">
+        <div class="specs-box">
+          <div class="specs-box-header minimum">Minimum</div>
+          <ul class="specs-list">
+            <li><span>RAM</span><span>2 – 4 GB</span></li>
+            <li><span>Storage</span><span>60 GB HDD+</span></li>
+            <li><span>Display</span><span>720p-capable CPU/GPU</span></li>
+            <li><span>CPU Architecture</span><span>32-bit (legacy build)</span></li>
+            <li><span>Integrated Graphics</span><span>Intel HD 520 / AMD Radeon Vega 3</span></li>
+            <li><span>Firmware</span><span>BIOS</span></li>
+          </ul>
+        </div>
+        <div class="specs-box">
+          <div class="specs-box-header recommended">Recommended</div>
+          <ul class="specs-list">
+            <li><span>RAM</span><span>8 GB+</span></li>
+            <li><span>Storage</span><span>128 GB SSD+</span></li>
+            <li><span>Display</span><span>1080p-capable CPU/GPU</span></li>
+            <li><span>CPU Architecture</span><span>64-bit</span></li>
+            <li><span>Graphics</span><span>Dedicated GPU recommended</span></li>
+            <li><span>Firmware</span><span>UEFI</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 MorrowOS. Built on <a href="https://ubuntu.com" target="_blank">Ubuntu</a>.</p>
+  </footer>
+
+</body>
+</html>

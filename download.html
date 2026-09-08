@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download | MorrowOS</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html" class="nav-brand">Morrow<span>OS</span></a>
+      <button class="hamburger" aria-label="Menu" onclick="document.querySelector('.nav-links').classList.toggle('open')">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="features.html">Features</a></li>
+        <li><a href="hardware.html">Hardware</a></li>
+        <li><a href="legacy.html">Legacy</a></li>
+        <li><a href="download.html" class="active">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <section class="coming-soon">
+      <div class="coming-soon-icon"><i class="ph ph-hourglass"></i></div>
+      <h2>Coming Soon</h2>
+      <p>MorrowOS is currently in active development. The first public release is on its way.</p>
+      <div class="notify-form">
+        <button class="btn btn-primary" id="notifyBtn" onclick="enableNotifications()">Enable Notifications</button>
+      </div>
+      <p class="notify-hint" id="notifyHint">Get a browser notification when the download is available or the site changes.</p>
+      <p class="notify-status" id="notifyStatus"></p>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 MorrowOS. Built on <a href="https://ubuntu.com" target="_blank">Ubuntu</a>.</p>
+  </footer>
+
+  <script>
+    function enableNotifications() {
+      if (!("Notification" in window)) {
+        document.getElementById("notifyStatus").textContent = "Your browser doesn't support notifications.";
+        return;
+      }
+      if (Notification.permission === "granted") {
+        document.getElementById("notifyStatus").textContent = "Notifications are already enabled. You'll be alerted when the download is available.";
+        return;
+      }
+      Notification.requestPermission().then(function (permission) {
+        if (permission === "granted") {
+          document.getElementById("notifyStatus").textContent = "Notifications enabled. We'll notify you when the download is available or the site changes.";
+          document.getElementById("notifyBtn").textContent = "Notifications Enabled";
+          document.getElementById("notifyBtn").disabled = true;
+        } else {
+          document.getElementById("notifyStatus").textContent = "Notifications were blocked. You can enable them in your browser settings.";
+        }
+      });
+    }
+    if ("Notification" in window && Notification.permission === "granted") {
+      document.getElementById("notifyBtn").textContent = "Notifications Enabled";
+      document.getElementById("notifyBtn").disabled = true;
+    }
+  </script>
+
+</body>
+</html>

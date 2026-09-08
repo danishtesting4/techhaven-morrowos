@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Features | MorrowOS</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html" class="nav-brand">Morrow<span>OS</span></a>
+      <button class="hamburger" aria-label="Menu" onclick="document.querySelector('.nav-links').classList.toggle('open')">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="features.html" class="active">Features</a></li>
+        <li><a href="hardware.html">Hardware</a></li>
+        <li><a href="legacy.html">Legacy</a></li>
+        <li><a href="download.html">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero" style="padding-bottom: 20px;">
+      <h1>Features</h1>
+      <p>Here's what we're working on and what's coming.</p>
+    </section>
+
+    <section>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-squares-four"></i></div>
+          <h3>Custom Visual Identity</h3>
+          <p>Our own design language across the whole system, login screen, desktop, icons, windows. Everything matches.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-desktop"></i></div>
+          <h3>Custom Desktop</h3>
+          <p>A desktop that's actually nice to use day to day. Clean layouts, consistent styling, no random visual clashes.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-code"></i></div>
+          <h3>Own Applications</h3>
+          <p>Apps and utilities we're building ourselves, not just rebranding someone else's work.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-gear-six"></i></div>
+          <h3>System Configuration</h3>
+          <p>Custom settings tools that go beyond what stock Ubuntu gives you. More control, less digging.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-hard-drives"></i></div>
+          <h3>BIOS & UEFI Support</h3>
+          <p>Boots on both legacy BIOS and modern UEFI. Old machines and new ones.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-linux-logo"></i></div>
+          <h3>Built on Ubuntu</h3>
+          <p>We're not starting from zero. Ubuntu gives us the base, we build the experience on top.</p>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-top: 60px;">
+      <div class="section-header">
+        <h2>Roadmap</h2>
+        <p>Where we're at and where we're headed.</p>
+      </div>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-check-circle"></i></div>
+          <h3>Right Now</h3>
+          <p>Ubuntu base, our own desktop theme, visual identity, installer work, and core apps.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-arrow-right"></i></div>
+          <h3>Coming Next</h3>
+          <p>Debian-based builds, 32-bit legacy support, and making sure it runs on more hardware.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon"><i class="ph ph-star"></i></div>
+          <h3>Down the Road</h3>
+          <p>More Linux bases where it makes sense. More MorrowOS-specific tools and features.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 MorrowOS. Built on <a href="https://ubuntu.com" target="_blank">Ubuntu</a>.</p>
+  </footer>
+
+</body>
+</html>
