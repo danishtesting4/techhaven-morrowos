@@ -105,6 +105,22 @@ function consumeRateLimit(key) {
   return true;
 }
 
+function getGatewayToken(req) {
+  if (process.env.AI_GATEWAY_API_KEY) {
+    return process.env.AI_GATEWAY_API_KEY;
+  }
+  if (process.env.VERCEL_OIDC_TOKEN) {
+    return process.env.VERCEL_OIDC_TOKEN;
+  }
+  if (process.env.VERCEL === "1") {
+    const headerToken = req.headers["x-vercel-oidc-token"];
+    if (typeof headerToken === "string" && headerToken) {
+      return headerToken;
+    }
+  }
+  return "";
+}
+
 function isSameOrigin(req) {
   const origin = req.headers.origin;
   if (!origin) {
@@ -298,7 +314,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+  const apiKey = getGatewayToken(req);
   if (!apiKey) {
     sendJson(res, 503, { error: "BOOT Chat is not configured on this deployment" });
     return;
@@ -332,7 +348,17 @@ module.exports = async function handler(req, res) {
 
     if (!upstream.ok) {
       const requestId = upstream.headers.get("x-vercel-id") || upstream.headers.get("x-request-id");
-      console.error("BOOT Chat upstream request failed", { status: upstream.status, requestId: requestId || null });
+      const upstreamError = payload && payload.error ? payload.error : null;
+      console.error("BOOT Chat upstream request failed", {
+        status: upstream.status,
+        requestId: requestId || null,
+        code: (upstreamError && upstreamError.code) || null,
+        upstreamMessage: (upstreamError && upstreamError.message) || null
+      });
+      if (upstream.status === 401 || upstream.status === 403) {
+        sendJson(res, 503, { error: "BOOT Chat is not available right now. Please try again later." });
+        return;
+      }
       sendJson(res, 502, { error: "The AI service is temporarily unavailable" });
       return;
     }
