@@ -2,11 +2,14 @@
   "use strict";
 
   const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-  const MAX_IMAGES = 3;
-  const MAX_TOTAL_IMAGE_BYTES = 2500000;
-  const MAX_HISTORY_MESSAGES = 20;
-  const REQUEST_TIMEOUT_MS = 62000;
+  const MAX_IMAGES = 1;
+  const MAX_IMAGE_BYTES = 1000000;
+  const MAX_TEXT_LENGTH = 2000;
+  const MAX_RENDERED_MESSAGES = 80;
+  const REQUEST_TIMEOUT_MS = 20000;
+  const FALLBACK_POLL_MS = 15000;
   const USERNAME_KEY = "morrowos.boot.username";
+  const CLIENT_ID_KEY = "morrowos.boot.client";
   const USERNAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _.-]{1,23}$/;
 
   const elements = {
@@ -16,11 +19,11 @@
     imageCounter: document.getElementById("image-counter"),
     attachButton: document.getElementById("attach-button"),
     sendButton: document.getElementById("send-button"),
-    clearButton: document.getElementById("clear-chat"),
     messages: document.getElementById("chat-messages"),
     attachmentPreview: document.getElementById("attachment-preview"),
     chatShell: document.getElementById("chat-shell"),
     status: document.getElementById("chat-status"),
+    presence: document.getElementById("chat-presence"),
     navLinks: document.getElementById("site-navigation"),
     navToggle: document.getElementById("nav-toggle"),
     loginScreen: document.getElementById("login-screen"),
@@ -32,37 +35,57 @@
     userAvatar: document.getElementById("user-avatar")
   };
 
-  let conversation = [];
+  let currentUsername = "";
+  let clientId = "";
+  let lastSeq = 0;
   let pendingImages = [];
   let isSending = false;
   let isReadingImages = false;
-  let isComposingRequest = false;
-  let isComposingResponse = false;
   let dragDepth = 0;
-  let currentUsername = "";
+  let source = null;
+  let fallbackTimer = null;
+  let onlineCount = 0;
+  const seenIds = new Set();
 
-  function getStoredUsername() {
+  function getStoredValue(key) {
     try {
-      return window.localStorage.getItem(USERNAME_KEY) || "";
+      return window.localStorage.getItem(key) || "";
     } catch {
       return "";
     }
   }
 
-  function storeUsername(name) {
+  function setStoredValue(key, value) {
     try {
-      window.localStorage.setItem(USERNAME_KEY, name);
+      window.localStorage.setItem(key, value);
     } catch {
       return;
     }
   }
 
-  function clearStoredUsername() {
+  function clearStoredValue(key) {
     try {
-      window.localStorage.removeItem(USERNAME_KEY);
+      window.localStorage.removeItem(key);
     } catch {
       return;
     }
+  }
+
+  function createId() {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+      return globalThis.crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function resolveClientId() {
+    const stored = getStoredValue(CLIENT_ID_KEY);
+    if (/^[A-Za-z0-9_-]{8,64}$/.test(stored)) {
+      return stored;
+    }
+    const generated = createId().replace(/-/g, "");
+    setStoredValue(CLIENT_ID_KEY, generated);
+    return generated;
   }
 
   function validateUsername(value) {
@@ -74,52 +97,6 @@
       return { ok: false, error: "Use 2 to 24 letters, numbers, spaces, dots, dashes or underscores." };
     }
     return { ok: true, name };
-  }
-
-  function showLogin() {
-    elements.loginScreen.hidden = false;
-    elements.chatShell.hidden = true;
-  }
-
-  function showChat() {
-    elements.loginScreen.hidden = true;
-    elements.chatShell.hidden = false;
-    elements.userName.textContent = currentUsername;
-    elements.userAvatar.textContent = currentUsername.slice(0, 1).toUpperCase();
-    elements.usernameInput.value = currentUsername;
-  }
-
-  function enterChat(name) {
-    currentUsername = name;
-    storeUsername(name);
-    conversation = [];
-    pendingImages = [];
-    elements.input.value = "";
-    renderAttachments();
-    renderWelcome();
-    resizeInput();
-    showChat();
-    setStatus("Ready");
-    elements.input.focus();
-  }
-
-  function exitChat() {
-    clearStoredUsername();
-    currentUsername = "";
-    conversation = [];
-    pendingImages = [];
-    elements.input.value = "";
-    renderAttachments();
-    showLogin();
-    elements.loginError.hidden = true;
-    elements.usernameInput.focus();
-  }
-
-  function createId() {
-    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
-      return globalThis.crypto.randomUUID();
-    }
-    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   function formatBytes(bytes) {
@@ -137,9 +114,43 @@
     elements.status.dataset.state = state;
   }
 
-  function setSending(value) {
-    isSending = value;
-    elements.messages.setAttribute("aria-busy", String(value));
+  function setOnline(count) {
+    onlineCount = Number(count) || 0;
+    if (!elements.presence) {
+      return;
+    }
+    elements.presence.textContent = onlineCount <= 1 ? "1 person here" : `${onlineCount} people here`;
+  }
+
+  function showLogin() {
+    elements.loginScreen.hidden = false;
+    elements.chatShell.hidden = true;
+  }
+
+  function showChat() {
+    elements.loginScreen.hidden = true;
+    elements.chatShell.hidden = false;
+    elements.userName.textContent = currentUsername;
+    elements.userAvatar.textContent = currentUsername.slice(0, 1).toUpperCase();
+    elements.usernameInput.value = currentUsername;
+  }
+
+  function renderWelcome() {
+    const notice = document.createElement("article");
+    notice.className = "message message-system";
+    const column = document.createElement("div");
+    column.className = "message-column";
+    const content = document.createElement("div");
+    content.className = "message-content";
+    content.textContent = "This is a shared room. Anything you send here is visible to everyone who is connected, and messages disappear after 24 hours.";
+    column.append(content);
+    notice.append(column);
+    elements.messages.replaceChildren(notice);
+  }
+
+  function resizeInput() {
+    elements.input.style.height = "auto";
+    elements.input.style.height = `${Math.min(elements.input.scrollHeight, 144)}px`;
     updateControls();
   }
 
@@ -149,18 +160,10 @@
     elements.attachButton.disabled = busy || pendingImages.length >= MAX_IMAGES;
     elements.imageInput.disabled = isSending;
     elements.input.disabled = isSending;
-    elements.input.setAttribute("aria-disabled", String(isSending));
     elements.sendButton.disabled = busy || (textIsEmpty && pendingImages.length === 0);
-    elements.clearButton.disabled = isSending;
     if (elements.imageCounter) {
-      elements.imageCounter.textContent = `${pendingImages.length} of ${MAX_IMAGES} pictures attached`;
+      elements.imageCounter.textContent = `${pendingImages.length} of ${MAX_IMAGES} picture attached`;
     }
-  }
-
-  function resizeInput() {
-    elements.input.style.height = "auto";
-    elements.input.style.height = `${Math.min(elements.input.scrollHeight, 144)}px`;
-    updateControls();
   }
 
   function scrollToLatest() {
@@ -169,14 +172,20 @@
     });
   }
 
-  function createMessageElement(role, content, isError = false) {
+  function isNearBottom() {
+    return elements.messages.scrollHeight - elements.messages.scrollTop - elements.messages.clientHeight < 140;
+  }
+
+  function createMessageElement(message) {
+    const isOwn = message.username === currentUsername;
     const article = document.createElement("article");
-    article.className = `message message-${role}${isError ? " message-error" : ""}`;
+    article.className = `message message-person${isOwn ? " is-own" : ""}`;
+    article.dataset.messageId = String(message.id);
 
     const avatar = document.createElement("div");
     avatar.className = "message-avatar";
     avatar.setAttribute("aria-hidden", "true");
-    avatar.textContent = role === "user" ? "Y" : "B";
+    avatar.textContent = (message.username || "?").slice(0, 1).toUpperCase();
 
     const column = document.createElement("div");
     column.className = "message-column";
@@ -184,68 +193,86 @@
     const meta = document.createElement("div");
     meta.className = "message-meta";
     const name = document.createElement("span");
-    name.textContent = role === "user" ? currentUsername || "You" : "BOOT Chat";
+    name.textContent = isOwn ? `${message.username} (you)` : message.username;
     const time = document.createElement("time");
-    time.dateTime = new Date().toISOString();
-    time.textContent = new Intl.DateTimeFormat(undefined, {
-      hour: "numeric",
-      minute: "2-digit"
-    }).format(new Date());
+    const stamp = new Date((message.createdAt || Math.floor(Date.now() / 1000)) * 1000);
+    time.dateTime = stamp.toISOString();
+    time.textContent = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(stamp);
     meta.append(name, time);
-
     column.append(meta);
 
-    if (typeof content === "string") {
+    if (message.text) {
       const text = document.createElement("div");
       text.className = "message-content";
-      text.textContent = content;
+      text.textContent = message.text;
       column.append(text);
-    } else {
-      const textParts = content.filter((part) => part.type === "text");
-      const images = content.filter((part) => part.type === "image_url");
-      const text = textParts.map((part) => part.text).join("\n").trim();
+    }
 
-      if (text) {
-        const textElement = document.createElement("div");
-        textElement.className = "message-content";
-        textElement.textContent = text;
-        column.append(textElement);
-      }
-
-      if (images.length > 0) {
-        const imageGrid = document.createElement("div");
-        imageGrid.className = "message-images";
-        images.forEach((part) => {
-          const image = document.createElement("img");
-          image.src = part.image_url.url;
-          image.alt = "Picture sent with this message";
-          image.loading = "lazy";
-          imageGrid.append(image);
-        });
-        column.append(imageGrid);
-      }
+    if (message.imageId) {
+      const grid = document.createElement("div");
+      grid.className = "message-images";
+      const image = document.createElement("img");
+      image.src = `/api/chat?image=${encodeURIComponent(message.imageId)}`;
+      image.alt = `Picture sent by ${message.username}`;
+      image.loading = "lazy";
+      grid.append(image);
+      column.append(grid);
     }
 
     article.append(avatar, column);
     return article;
   }
 
-  function renderMessage(role, content, isError = false) {
-    const nearBottom = elements.messages.scrollHeight - elements.messages.scrollTop - elements.messages.clientHeight < 120;
-    const message = createMessageElement(role, content, isError);
-    elements.messages.append(message);
-    if (nearBottom || isError) {
+  function appendMessages(messages) {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return;
+    }
+    const nearBottom = isNearBottom();
+    const fragment = document.createDocumentFragment();
+    let added = 0;
+
+    messages.forEach((message) => {
+      if (!message || !message.id || seenIds.has(message.id)) {
+        return;
+      }
+      seenIds.add(message.id);
+      if (message.id > lastSeq) {
+        lastSeq = message.id;
+      }
+      fragment.append(createMessageElement(message));
+      added += 1;
+    });
+
+    if (added === 0) {
+      return;
+    }
+    elements.messages.append(fragment);
+
+    while (elements.messages.children.length > MAX_RENDERED_MESSAGES) {
+      const first = elements.messages.firstElementChild;
+      if (!first) {
+        break;
+      }
+      elements.messages.firstElementChild.remove();
+    }
+
+    if (nearBottom) {
       scrollToLatest();
     }
   }
 
-  function renderWelcome() {
-    const greeting = currentUsername ? `Hi ${currentUsername}! I’m BOOT Chat.` : "Hi! I’m BOOT Chat.";
-    const welcome = createMessageElement(
-      "assistant",
-      `${greeting} Send a message, attach up to three pictures, or do both. I can describe images, read visible text, compare pictures, and help with questions.`
-    );
-    elements.messages.replaceChildren(welcome);
+  function appendSystemMessage(text, isError) {
+    const article = document.createElement("article");
+    article.className = `message message-system${isError ? " message-error" : ""}`;
+    const column = document.createElement("div");
+    column.className = "message-column";
+    const content = document.createElement("div");
+    content.className = "message-content";
+    content.textContent = text;
+    column.append(content);
+    article.append(column);
+    elements.messages.append(article);
+    scrollToLatest();
   }
 
   function renderAttachments() {
@@ -268,7 +295,6 @@
       removeButton.addEventListener("click", () => {
         pendingImages = pendingImages.filter((item) => item.id !== image.id);
         renderAttachments();
-        setStatus(pendingImages.length > 0 ? `${pendingImages.length} picture${pendingImages.length === 1 ? "" : "s"} ready` : "Ready");
         updateControls();
       });
 
@@ -291,70 +317,43 @@
     if (isSending || isReadingImages) {
       return;
     }
-
     const files = Array.from(fileList);
     if (files.length === 0) {
       return;
     }
-
     elements.imageInput.value = "";
 
-    const accepted = files.filter((file) => ALLOWED_IMAGE_TYPES.has(file.type) && file.size > 0);
-    const rejectedCount = files.length - accepted.length;
-    const availableSlots = MAX_IMAGES - pendingImages.length;
-    const selected = accepted.slice(0, availableSlots);
-    const skippedCount = rejectedCount + Math.max(0, accepted.length - selected.length);
-
-    if (selected.length === 0) {
-      setStatus(
-        rejectedCount > 0 ? "Attach JPG, PNG or WebP pictures only" : "You can attach up to 3 pictures",
-        "error"
-      );
+    const file = files.find((candidate) => ALLOWED_IMAGE_TYPES.has(candidate.type) && candidate.size > 0);
+    if (!file) {
+      setStatus("Attach a JPG, PNG or WebP picture", "error");
       return;
     }
-
-    const currentBytes = pendingImages.reduce((total, image) => total + image.size, 0);
-    const allowed = [];
-    let addedBytes = 0;
-    let sizeRejectedCount = 0;
-
-    selected.forEach((file) => {
-      if (currentBytes + addedBytes + file.size > MAX_TOTAL_IMAGE_BYTES) {
-        sizeRejectedCount += 1;
-        return;
-      }
-      addedBytes += file.size;
-      allowed.push(file);
-    });
-
-    if (allowed.length === 0) {
-      setStatus("Pictures must be 2.5 MB or less in total", "error");
+    if (file.size > MAX_IMAGE_BYTES) {
+      setStatus("Pictures must be 1 MB or less", "error");
+      return;
+    }
+    if (pendingImages.length >= MAX_IMAGES) {
+      setStatus("You can attach one picture per message", "error");
       return;
     }
 
     isReadingImages = true;
     updateControls();
-    setStatus("Preparing pictures...");
+    setStatus("Preparing picture...");
 
     try {
-      const prepared = await Promise.all(
-        allowed.map(async (file) => ({
+      const dataUrl = await readFileAsDataUrl(file);
+      pendingImages = [
+        {
           id: createId(),
           name: file.name || "picture",
           size: file.size,
           type: file.type,
-          dataUrl: await readFileAsDataUrl(file)
-        }))
-      );
-      pendingImages.push(...prepared);
+          base64: String(dataUrl).split(",")[1] || ""
+        }
+      ];
       renderAttachments();
-      const rejectedSummary = skippedCount + sizeRejectedCount;
-      setStatus(
-        rejectedSummary > 0
-          ? `${pendingImages.length} picture${pendingImages.length === 1 ? "" : "s"} ready · ${rejectedSummary} skipped`
-          : `${pendingImages.length} picture${pendingImages.length === 1 ? "" : "s"} ready`,
-        rejectedSummary > 0 ? "error" : ""
-      );
+      setStatus("Picture ready to send");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not read that picture", "error");
     } finally {
@@ -364,30 +363,17 @@
     }
   }
 
-  function buildApiMessages() {
-    return conversation.slice(-MAX_HISTORY_MESSAGES).map((message, index, messages) => {
-      if (typeof message.content === "string") {
-        return { role: message.role, content: message.content };
-      }
-
-      const isLatest = index === messages.length - 1;
-      const content = message.content
-        .map((part) => {
-          if (part.type === "image_url" && !isLatest) {
-            return { type: "text", text: "[A picture was attached in an earlier message.]" };
-          }
-          return part;
-        })
-        .filter(Boolean);
-      return { role: message.role, content };
-    });
+  function setSending(value) {
+    isSending = value;
+    elements.messages.setAttribute("aria-busy", String(value));
+    updateControls();
   }
 
   function getRequestError(error) {
     if (error instanceof Error && error.message) {
       return error.message;
     }
-    return "BOOT couldn’t reach the API. Check your connection and try again.";
+    return "Could not reach the chat server. Check your connection.";
   }
 
   async function sendMessage(event) {
@@ -396,105 +382,191 @@
       showLogin();
       return;
     }
-    if (isSending || isReadingImages || isComposingRequest) {
+    if (isSending || isReadingImages) {
       return;
     }
 
-    const text = elements.input.value.trim();
-    if (!text && pendingImages.length === 0) {
+    const text = elements.input.value.trim().slice(0, MAX_TEXT_LENGTH);
+    const image = pendingImages[0] || null;
+    if (!text && !image) {
       return;
     }
 
-    isComposingRequest = true;
-
-    const content = [];
-    if (text) {
-      content.push({ type: "text", text });
-    }
-    pendingImages.forEach((image) => {
-      content.push({
-        type: "image_url",
-        image_url: {
-          url: image.dataUrl,
-          detail: "auto"
-        }
-      });
-    });
-
-    const userContent = text && content.length === 1 ? text : content;
-    conversation.push({ role: "user", content: userContent });
-    renderMessage("user", userContent);
-    elements.input.value = "";
-    pendingImages = [];
-    renderAttachments();
-    resizeInput();
     setSending(true);
-    setStatus("BOOT is thinking...");
+    setStatus("Sending...");
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    isComposingResponse = true;
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: currentUsername, messages: buildApiMessages() }),
+        body: JSON.stringify({
+          clientId,
+          username: currentUsername,
+          text,
+          image: image ? { mime: image.type, base64: image.base64 } : null
+        }),
         signal: controller.signal
       });
 
       let data = {};
       try {
         data = await response.json();
-    } catch {
-      data = {};
-    }
+      } catch {
+        data = {};
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || "The API could not complete that request. Please try again.");
-      }
-      if (typeof data.reply !== "string" || !data.reply.trim()) {
-        throw new Error("The API returned an empty response. Please try again.");
+        throw new Error(data.error || "Could not send that message.");
       }
 
-      const reply = data.reply.trim();
-      conversation.push({ role: "assistant", content: reply });
-      isComposingResponse = false;
-      setSending(false);
-      renderMessage("assistant", reply);
-      setStatus("Connected", "success");
+      elements.input.value = "";
+      pendingImages = [];
+      renderAttachments();
+      resizeInput();
+
+      if (data.message) {
+        appendMessages([data.message]);
+      } else {
+        pollOnce();
+      }
+      setStatus(isStreamOpen() ? "Live" : "Reconnecting...", isStreamOpen() ? "success" : "");
     } catch (error) {
-      const message = error && error.name === "AbortError"
-        ? "BOOT took too long to respond. Please try again."
-        : getRequestError(error);
-      isComposingResponse = false;
-      setSending(false);
-      renderMessage("assistant", message, true);
-      setStatus("Connection error · Try again", "error");
+      const message = error && error.name === "AbortError" ? "That took too long. Please try again." : getRequestError(error);
+      appendSystemMessage(message, true);
+      setStatus("Send failed · Try again", "error");
     } finally {
       window.clearTimeout(timeout);
-      isComposingRequest = false;
-      isComposingResponse = false;
       setSending(false);
       elements.input.focus();
     }
   }
 
-  function clearConversation() {
-    if (isSending) {
+  function isStreamOpen() {
+    return Boolean(source) && source.readyState === 1;
+  }
+
+  function connectStream() {
+    if (source) {
+      source.close();
+      source = null;
+    }
+    setStatus("Connecting...");
+    try {
+      source = new EventSource(`/api/chat?client=${encodeURIComponent(clientId)}&since=${lastSeq}`);
+    } catch {
+      setStatus("Offline · retrying", "error");
       return;
     }
-    if (conversation.length > 0 && !window.confirm("Start a new BOOT Chat conversation?")) {
+
+    source.addEventListener("open", () => {
+      setStatus("Live", "success");
+    });
+
+    source.addEventListener("message", (event) => {
+      let data = {};
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      appendMessages(data.messages);
+    });
+
+    source.addEventListener("presence", (event) => {
+      let data = {};
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      setOnline(data.online);
+    });
+
+    source.addEventListener("stream-error", (event) => {
+      let data = {};
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        data = {};
+      }
+      appendSystemMessage(data.message || "Could not load the room yet.", true);
+    });
+
+    source.addEventListener("error", () => {
+      if (!isStreamOpen()) {
+        setStatus("Reconnecting...", "error");
+      }
+    });
+  }
+
+  async function pollOnce() {
+    try {
+      const response = await fetch(
+        `/api/chat?mode=poll&client=${encodeURIComponent(clientId)}&since=${lastSeq}`,
+        { headers: { Accept: "application/json" } }
+      );
+      if (!response.ok) {
+        return;
+      }
+      const data = await response.json();
+      appendMessages(data.messages);
+      setOnline(data.online);
+    } catch {
       return;
     }
-    conversation = [];
+  }
+
+  function startFallbackPolling() {
+    if (fallbackTimer) {
+      return;
+    }
+    fallbackTimer = window.setInterval(() => {
+      if (!isStreamOpen()) {
+        pollOnce();
+      }
+    }, FALLBACK_POLL_MS);
+  }
+
+  function enterChat(name) {
+    currentUsername = name;
+    setStoredValue(USERNAME_KEY, name);
+    lastSeq = 0;
+    seenIds.clear();
     pendingImages = [];
     elements.input.value = "";
     renderAttachments();
     renderWelcome();
     resizeInput();
-    setStatus("Ready");
+    showChat();
+    setOnline(0);
+    connectStream();
+    startFallbackPolling();
+    setStatus("Connecting...");
     elements.input.focus();
+  }
+
+  function exitChat() {
+    if (source) {
+      source.close();
+      source = null;
+    }
+    if (fallbackTimer) {
+      window.clearInterval(fallbackTimer);
+      fallbackTimer = null;
+    }
+    clearStoredValue(USERNAME_KEY);
+    currentUsername = "";
+    lastSeq = 0;
+    seenIds.clear();
+    pendingImages = [];
+    elements.input.value = "";
+    renderAttachments();
+    showLogin();
+    elements.loginError.hidden = true;
+    elements.usernameInput.focus();
   }
 
   function hasDraggedFiles(event) {
@@ -502,8 +574,13 @@
   }
 
   elements.form.addEventListener("submit", sendMessage);
-  elements.clearButton.addEventListener("click", clearConversation);
   elements.input.addEventListener("input", resizeInput);
+  elements.input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      elements.form.requestSubmit();
+    }
+  });
 
   elements.loginForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -526,16 +603,10 @@
     if (isSending) {
       return;
     }
-    if (conversation.length > 0 && !window.confirm("Change username and clear this chat?")) {
+    if (!window.confirm("Leave the room and choose a different username?")) {
       return;
     }
     exitChat();
-  });
-  elements.input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
-      event.preventDefault();
-      elements.form.requestSubmit();
-    }
   });
 
   elements.attachButton.addEventListener("click", () => elements.imageInput.click());
@@ -546,20 +617,18 @@
     if (!clipboard) {
       return;
     }
-    const files = Array.from(clipboard.files);
+    const files = Array.from(clipboard.files || []);
     const images = files.filter((file) => ALLOWED_IMAGE_TYPES.has(file.type) && file.size > 0);
-    if (images.length === 0) {
-      return;
-    }
-    event.preventDefault();
     const pastedText = String(clipboard.getData("text/plain") || "").trim();
     if (pastedText) {
       const current = elements.input.value;
-      const next = `${current}${current ? " " : ""}${pastedText}`.slice(0, 8000);
-      elements.input.value = next;
+      elements.input.value = `${current}${current ? " " : ""}${pastedText}`.slice(0, MAX_TEXT_LENGTH);
       resizeInput();
     }
-    addFiles(files);
+    if (images.length > 0) {
+      event.preventDefault();
+      addFiles(images);
+    }
   });
 
   elements.chatShell.addEventListener("dragenter", (event) => {
@@ -582,6 +651,7 @@
     if (!hasDraggedFiles(event)) {
       return;
     }
+    event.preventDefault();
     dragDepth = Math.max(0, dragDepth - 1);
     if (dragDepth === 0) {
       elements.chatShell.classList.remove("is-dragging");
@@ -603,13 +673,10 @@
     elements.navToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
-  const storedUsername = getStoredUsername();
-  const storedResult = validateUsername(storedUsername);
+  clientId = resolveClientId();
+  const storedResult = validateUsername(getStoredValue(USERNAME_KEY));
   if (storedResult.ok) {
-    currentUsername = storedResult.name;
-    showChat();
-    renderWelcome();
-    resizeInput();
+    enterChat(storedResult.name);
   } else {
     showLogin();
     elements.usernameInput.focus();

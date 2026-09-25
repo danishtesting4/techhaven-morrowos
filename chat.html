@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="BOOT Chat is MorrowOS's conversational AI for text and picture analysis.">
+  <meta name="description" content="BOOT Chat is MorrowOS's shared room for talking to other people with text and pictures.">
   <meta name="theme-color" content="#0d1117">
   <title>BOOT Chat | MorrowOS</title>
   <link rel="stylesheet" href="style.css">
@@ -35,12 +35,12 @@
       <div class="login-card">
         <div class="boot-mark" aria-hidden="true"><i class="ph ph-terminal-window"></i></div>
         <h1 id="login-title">BOOT Chat</h1>
-        <p class="login-subtitle">Enter a username to start chatting.</p>
+        <p class="login-subtitle">Pick a username to join the room.</p>
         <form id="login-form" novalidate>
           <label for="username-input">Username</label>
           <input id="username-input" name="username" type="text" maxlength="24" autocomplete="username" spellcheck="false" placeholder="e.g. danis" required>
           <p class="login-error" id="login-error" role="alert" hidden></p>
-          <button class="login-submit" type="submit"><i class="ph ph-arrow-right" aria-hidden="true"></i>Start chatting</button>
+          <button class="login-submit" type="submit"><i class="ph ph-arrow-right" aria-hidden="true"></i>Join the room</button>
         </form>
         <p class="login-note">This is a display name, not a password. It is stored only in this browser.</p>
       </div>
@@ -51,49 +51,39 @@
         <div class="boot-mark" aria-hidden="true"><i class="ph ph-terminal-window"></i></div>
         <div class="chat-heading">
           <h1 id="chat-title">BOOT Chat</h1>
-          <p>Text and picture intelligence for MorrowOS</p>
+          <p>A shared room for everyone on MorrowOS</p>
         </div>
+        <span class="chat-presence" id="chat-presence" role="status" aria-live="polite">Connecting…</span>
         <button class="user-chip" id="user-chip" type="button" aria-label="Change username" title="Change username">
           <span class="user-avatar" id="user-avatar" aria-hidden="true"></span>
           <span id="user-name">Guest</span>
         </button>
-        <button class="chat-clear" id="clear-chat" type="button" aria-label="Start a new chat" title="Start a new chat">
-          <i class="ph ph-trash" aria-hidden="true"></i><span>New chat</span>
-        </button>
       </header>
 
-      <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-relevant="additions text" aria-label="BOOT Chat conversation" tabindex="0">
-        <article class="message message-assistant">
-          <div class="message-avatar" aria-hidden="true">B</div>
-          <div class="message-column">
-            <div class="message-meta"><span>BOOT Chat</span><time>Now</time></div>
-            <div class="message-content">Hi! I’m BOOT Chat. Send a message, attach up to three pictures, or do both. I can describe images, read visible text, compare pictures, and help with questions.</div>
-          </div>
-        </article>
-      </div>
+      <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-relevant="additions text" aria-label="BOOT Chat room messages" tabindex="0"></div>
 
-      <div class="attachment-preview" id="attachment-preview" aria-label="Attached pictures" hidden></div>
+      <div class="attachment-preview" id="attachment-preview" aria-label="Attached picture" hidden></div>
 
       <div class="drop-overlay" aria-hidden="true">
         <i class="ph ph-image"></i>
-        <span>Drop pictures to attach</span>
+        <span>Drop a picture to attach</span>
       </div>
 
       <form class="chat-composer" id="chat-form">
         <div class="composer-row">
-          <input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
-          <button class="attach-button" id="attach-button" type="button" aria-label="Attach pictures" title="Attach pictures">
+          <input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+          <button class="attach-button" id="attach-button" type="button" aria-label="Attach a picture" title="Attach a picture">
             <i class="ph ph-image-square" aria-hidden="true"></i>
           </button>
-          <textarea id="message-input" rows="1" maxlength="8000" placeholder="Message BOOT Chat..." aria-label="Message BOOT Chat" enterkeyhint="send"></textarea>
+          <textarea id="message-input" rows="1" maxlength="2000" placeholder="Message the room..." aria-label="Message the room" enterkeyhint="send"></textarea>
           <button class="send-button" id="send-button" type="submit" aria-label="Send message" title="Send message">
             <i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span>Send</span>
           </button>
         </div>
         <div class="composer-meta">
-          <span id="chat-status" role="status" aria-live="polite">Ready</span>
-          <span id="image-counter">0 of 3 pictures attached</span>
-          <span>Only pictures can be attached · JPG, PNG or WebP · 2.5 MB total</span>
+          <span id="chat-status" role="status" aria-live="polite">Connecting...</span>
+          <span id="image-counter">0 of 1 picture attached</span>
+          <span>Everyone here can read this · one picture per message · JPG, PNG or WebP · 1 MB max · clears after 24h</span>
         </div>
       </form>
       <noscript><p class="chat-noscript">BOOT Chat needs JavaScript enabled to send messages and pictures.</p></noscript>

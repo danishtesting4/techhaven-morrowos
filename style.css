@@ -1249,3 +1249,86 @@ main.chat-main {
     padding: 9px 11px;
   }
 }
+
+/* ---- BOOT Chat: shared room ---- */
+
+.chat-presence {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chat-presence::before {
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+  border-radius: 50%;
+  content: "";
+}
+
+.message-system {
+  justify-content: center;
+}
+
+.message-system .message-column {
+  max-width: min(92%, 620px);
+}
+
+.message-system .message-content {
+  color: var(--text-muted);
+  background: transparent;
+  border-style: dashed;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.message-system.message-error .message-content {
+  color: #ffb4b4;
+  background: rgba(248, 81, 73, 0.08);
+  border-color: rgba(248, 81, 73, 0.38);
+  border-style: solid;
+  text-align: left;
+}
+
+.message-person.is-own {
+  flex-direction: row-reverse;
+}
+
+.message-person.is-own .message-avatar {
+  color: var(--bg-primary);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.message-person.is-own .message-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.message-person.is-own .message-content {
+  color: #071a18;
+  background: var(--accent);
+  border-color: var(--accent);
+  border-radius: 14px 4px 14px 14px;
+}
+
+@media (max-width: 640px) {
+  .chat-presence {
+    padding: 5px 8px;
+    font-size: 0.65rem;
+  }
+
+  .message-system .message-column {
+    max-width: 100%;
+  }
+}
